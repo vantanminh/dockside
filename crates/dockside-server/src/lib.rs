@@ -100,21 +100,19 @@ mod legacy_tests {
     use super::migrate_legacy_db;
 
     #[test]
-    fn adopts_legacy_db_files_once() {
-        let dir = tempfile::tempdir().expect("tempdir");
+    fn adopts_legacy_db_files_once() -> Result<(), Box<dyn std::error::Error>> {
+        let dir = tempfile::tempdir()?;
         let p = dir.path();
-        std::fs::write(p.join("dsrc.sqlite"), b"db").expect("write");
-        std::fs::write(p.join("dsrc.sqlite-wal"), b"wal").expect("write");
-        migrate_legacy_db(p).expect("migrate");
+        std::fs::write(p.join("dsrc.sqlite"), b"db")?;
+        std::fs::write(p.join("dsrc.sqlite-wal"), b"wal")?;
+        migrate_legacy_db(p)?;
         assert!(!p.join("dsrc.sqlite").exists());
-        assert_eq!(std::fs::read(p.join("dockside.sqlite")).expect("db"), b"db");
-        assert_eq!(
-            std::fs::read(p.join("dockside.sqlite-wal")).expect("wal"),
-            b"wal"
-        );
-        // A second run, or a present new DB, never overwrites anything.
-        std::fs::write(p.join("dsrc.sqlite"), b"other").expect("write");
-        migrate_legacy_db(p).expect("migrate");
-        assert_eq!(std::fs::read(p.join("dockside.sqlite")).expect("db"), b"db");
+        assert_eq!(std::fs::read(p.join("dockside.sqlite"))?, b"db");
+        assert_eq!(std::fs::read(p.join("dockside.sqlite-wal"))?, b"wal");
+        // A present new DB is never overwritten.
+        std::fs::write(p.join("dsrc.sqlite"), b"other")?;
+        migrate_legacy_db(p)?;
+        assert_eq!(std::fs::read(p.join("dockside.sqlite"))?, b"db");
+        Ok(())
     }
 }
