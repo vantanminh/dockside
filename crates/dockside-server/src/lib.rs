@@ -45,11 +45,29 @@ pub struct ServerOptions {
     pub run_verify: bool,
 }
 
+/// Data directories created before the project was renamed hold `dsrc.sqlite`; adopt it (and its
+/// WAL/SHM side files) so an upgrade never starts from an empty history.
+fn migrate_legacy_db(dir: &std::path::Path) -> ServerResult<()> {
+    let new = dir.join("dockside.sqlite");
+    let legacy = dir.join("dsrc.sqlite");
+    if new.exists() || !legacy.exists() {
+        return Ok(());
+    }
+    for suffix in ["", "-wal", "-shm"] {
+        let from = dir.join(format!("dsrc.sqlite{suffix}"));
+        if from.exists() {
+            std::fs::rename(&from, dir.join(format!("dockside.sqlite{suffix}")))?;
+        }
+    }
+    Ok(())
+}
+
 impl AppState {
     pub async fn init(opts: ServerOptions) -> ServerResult<Self> {
         std::fs::create_dir_all(&opts.data_dir)?;
         let cas = CasStore::open(opts.data_dir.join("cas"), opts.r2)?;
         let empty_tree_hash = write_tree(&cas, &BTreeMap::new()).await?;
+        migrate_legacy_db(&opts.data_dir)?;
         let db = Db::open(opts.data_dir.join("dockside.sqlite"), &empty_tree_hash)?;
         let policy = PolicyEngine::from_config(&opts.config)?;
         let verify_workdir = opts
@@ -75,4 +93,28 @@ impl AppState {
 
 pub fn build_router(state: AppState) -> Router {
     routes::router(state)
+}
+
+#[cfg(test)]
+mod legacy_tests {
+    use super::migrate_legacy_db;
+
+    #[test]
+    fn adopts_legacy_db_files_once() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let p = dir.path();
+        std::fs::write(p.join("dsrc.sqlite"), b"db").expect("write");
+        std::fs::write(p.join("dsrc.sqlite-wal"), b"wal").expect("write");
+        migrate_legacy_db(p).expect("migrate");
+        assert!(!p.join("dsrc.sqlite").exists());
+        assert_eq!(std::fs::read(p.join("dockside.sqlite")).expect("db"), b"db");
+        assert_eq!(
+            std::fs::read(p.join("dockside.sqlite-wal")).expect("wal"),
+            b"wal"
+        );
+        // A second run, or a present new DB, never overwrites anything.
+        std::fs::write(p.join("dsrc.sqlite"), b"other").expect("write");
+        migrate_legacy_db(p).expect("migrate");
+        assert_eq!(std::fs::read(p.join("dockside.sqlite")).expect("db"), b"db");
+    }
 }
