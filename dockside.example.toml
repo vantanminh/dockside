@@ -1,0 +1,138 @@
+# Dockside configuration example. Replace the targets below with your own.
+# Expandable to services/cdn, services/doc-quest, apps/mobile by adding [[targets]] entries.
+
+[repo]
+name = "monorepo"
+default_branch = "main"
+
+[policy]
+# Fully automated: NOTHING waits for a human. Changesets touching these globs are flagged as
+# sensitive and held to a stricter automated bar: if an affected target has verify_commands, the
+# verify gate must actually run (DOCKSIDE_RUN_VERIFY=true) or the changeset is failed (not landed).
+# (`require_approval_globs` is still accepted as an alias for old configs.)
+sensitive_globs = [
+  "**/migrations/**",
+  "infra/**",
+  "**/auth/**",
+  "**/authz/**",
+  "contracts/**",
+  "**/spec/openapi*.yaml",
+  "dockside.toml",
+]
+
+# Dev/test only: let sensitive changesets land even when the verify gate could not run.
+allow_unverified_sensitive = false
+
+# Paths blocked from ever entering the VCS (enforced at both CLI and Server).
+blocked_secret_globs = [
+  "**/.env",
+  "**/.env.*",
+  "**/.dev.vars",
+  "**/*.pem",
+  "**/*.key",
+  "**/id_rsa*",
+]
+
+# Exceptions to blocked_secret_globs (safe template files).
+allowed_secret_templates = [
+  "**/.env.example",
+  "**/.env.*.example",
+  "**/.dev.vars.example",
+]
+
+[hotfiles]
+# Directory where pending_<slug>.sql migrations are auto-numbered to NNNN_<slug>.sql on land.
+migration_dirs = [
+  "services/api/src/db/migrations",
+]
+
+# Registry files whose contiguous line lists can be auto-merged by sorted union when safe.
+sorted_merge_globs = [
+  "services/api/rust/crates/myapp-api/src/routes/mod.rs",
+  "apps/web/app/routes.ts",
+  "apps/dashboard/app/routes.ts",
+]
+
+# ---- Pilot Targets (Phase 1-2) ----
+
+[[targets]]
+name = "api"
+path = "services/api"
+kind = "rudder-image"
+rudder_service = "myproject/prod/api"
+dockerfile = "services/api/rust/Dockerfile"
+context = "services/api"
+watch_globs = ["services/api/**", "contracts/api-v1/**", "contracts/api-v2/**"]
+verify_commands = [
+  "cargo fmt --manifest-path services/api/rust/Cargo.toml --all -- --check",
+  "cargo clippy --manifest-path services/api/rust/Cargo.toml --workspace --all-targets --locked -- -D warnings",
+  "cargo test --manifest-path services/api/rust/Cargo.toml --workspace --locked",
+]
+ready_url = "https://api.example.com/v1/ready"
+# After deploy the body must contain rN (GIT_SHA build arg) for rudder-image targets; override with:
+# ready_marker = "{rev}"
+
+[[targets]]
+name = "web"
+path = "apps/web"
+kind = "cloudflare-worker"
+worker_name = "myapp-web"
+watch_globs = ["apps/web/**", "contracts/api-v1/**", "contracts/api-v2/**"]
+verify_commands = [
+  "pnpm --dir apps/web install --frozen-lockfile",
+  "pnpm --dir apps/web api:check",
+  "pnpm --dir apps/web typecheck",
+  "pnpm --dir apps/web test",
+  "pnpm --dir apps/web format:check",
+  "pnpm --dir apps/web build",
+]
+pre_deploy_commands = [
+  "pnpm --dir apps/web api:check-domain",
+]
+deploy_command = "pnpm --dir apps/web deploy"
+ready_url = "https://example.com"
+
+[[targets]]
+name = "dashboard"
+path = "apps/dashboard"
+kind = "cloudflare-worker"
+worker_name = "myapp-dashboard"
+watch_globs = ["apps/dashboard/**", "contracts/api-v2/**", "contracts/cdn-admin/**"]
+verify_commands = [
+  "pnpm --dir apps/dashboard install --frozen-lockfile",
+  "pnpm --dir apps/dashboard typecheck",
+  "pnpm --dir apps/dashboard test",
+  "pnpm --dir apps/dashboard format:check",
+  "pnpm --dir apps/dashboard build",
+]
+deploy_command = "pnpm --dir apps/dashboard deploy"
+ready_url = "https://dashboard.example.com"
+
+# ---- Future Targets (Phase 3+ expansion) ----
+# [[targets]]
+# name = "cdn"
+# path = "services/cdn"
+# kind = "rudder-image"
+# rudder_service = "myproject/prod/api"
+# dockerfile = "services/cdn/Dockerfile"
+# context = "services/cdn"
+# watch_globs = ["services/cdn/**", "contracts/cdn-admin/**"]
+# verify_commands = ["cargo test --manifest-path services/cdn/Cargo.toml --locked"]
+# ready_url = "https://cdn.example.com/_cdn/health"
+#
+# [[targets]]
+# name = "doc-quest"
+# path = "services/doc-quest"
+# kind = "rudder-image"
+# rudder_service = "myproject/prod/api"
+# dockerfile = "services/doc-quest/Dockerfile"
+# context = "services/doc-quest"
+# watch_globs = ["services/doc-quest/**", "contracts/doc-quest/**"]
+# verify_commands = ["cargo test --manifest-path services/doc-quest/Cargo.toml --locked"]
+#
+# [[targets]]
+# name = "mobile"
+# path = "apps/mobile"
+# kind = "expo-eas"
+# watch_globs = ["apps/mobile/**", "contracts/api-v1/**", "contracts/api-v2/**"]
+# verify_commands = ["bun --cwd apps/mobile run lint", "bun --cwd apps/mobile run typecheck", "bun --cwd apps/mobile test tests"]

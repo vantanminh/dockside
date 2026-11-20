@@ -1,0 +1,50 @@
+# Dockside server as a Docker Compose service.
+# Secrets come from the environment (e.g. an .env file that is NOT committed), never from Git.
+# `:?required` makes Compose refuse to start if one is missing, so the server can never come up
+# without auth.
+#
+#   docker build -t dockside-server .
+#   DOCKSIDE_IMAGE=dockside-server DOCKSIDE_AUTH_TOKEN=$(openssl rand -hex 32) docker compose -f deploy/docker/compose.yml up -d
+services:
+  dockside:
+    image: ${DOCKSIDE_IMAGE:-dockside-server}
+    restart: unless-stopped
+    environment:
+      DOCKSIDE_BIND_ADDR: 0.0.0.0:7420
+      # Mandatory: the server refuses a non-loopback bind without it.
+      DOCKSIDE_AUTH_TOKEN: ${DOCKSIDE_AUTH_TOKEN:?required}
+      # Optional Cloudflare R2 / S3-compatible blob store (blobs are written through; /data/cas
+      # stays as a local cache). Leave all unset to keep blobs on the volume only.
+      DOCKSIDE_R2_ENDPOINT: ${DOCKSIDE_R2_ENDPOINT:-}
+      DOCKSIDE_R2_BUCKET: ${DOCKSIDE_R2_BUCKET:-}
+      DOCKSIDE_R2_ACCESS_KEY_ID: ${DOCKSIDE_R2_ACCESS_KEY_ID:-}
+      DOCKSIDE_R2_SECRET_ACCESS_KEY: ${DOCKSIDE_R2_SECRET_ACCESS_KEY:-}
+      DOCKSIDE_R2_REGION: ${DOCKSIDE_R2_REGION:-auto}
+      DOCKSIDE_R2_PREFIX: ${DOCKSIDE_R2_PREFIX:-cas/v1}
+      DOCKSIDE_RUN_VERIFY: "true"
+      # Only needed for `release` / `rollback` of the matching target kinds.
+      CLOUDFLARE_API_TOKEN: ${CLOUDFLARE_API_TOKEN:-}
+      CLOUDFLARE_ACCOUNT_ID: ${CLOUDFLARE_ACCOUNT_ID:-}
+      RUDDER_URL: ${RUDDER_URL:-}
+      RUDDER_TOKEN: ${RUDDER_TOKEN:-}
+    volumes:
+      # EVERYTHING durable lives here: dockside.sqlite (revision history!), cas cache, git-mirror,
+      # verify-work (warm cargo target / node_modules), toolchain. Back this volume up.
+      - dockside-data:/data
+    ports:
+      # Put a TLS-terminating reverse proxy in front before exposing this beyond localhost.
+      - "127.0.0.1:7420:7420"
+    healthcheck:
+      test: [CMD-SHELL, "curl -fsS http://127.0.0.1:7420/v1/health || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 20s
+    # Verify gates (cargo/pnpm) are heavy; size these for your projects.
+    mem_limit: 4g
+    cpus: 3
+    pids_limit: 2048
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+volumes:
+  dockside-data:

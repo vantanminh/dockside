@@ -1,0 +1,12 @@
+target
+data
+.git
+.env
+.env.*
+!.env.example
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.log
+docs
+skills

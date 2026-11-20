@@ -1,0 +1,30 @@
+[package]
+name = "dockside-cli"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[[bin]]
+name = "dockside"
+path = "src/main.rs"
+
+[dependencies]
+clap.workspace = true
+dockside-core = { path = "../dockside-core" }
+reqwest.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+walkdir.workspace = true
+
+[dev-dependencies]
+axum.workspace = true
+dockside-server = { path = "../dockside-server" }
+tempfile.workspace = true

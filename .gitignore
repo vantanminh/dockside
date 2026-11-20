@@ -1,0 +1,14 @@
+/target
+/data
+/.dockside
+/.env
+/.env.*
+!/.env.example
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+*.db
+*.db-wal
+*.db-shm
+*.log
+/rudder.toml
