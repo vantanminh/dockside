@@ -124,6 +124,9 @@ function renderDiff(text) {
 
 async function selectCs(csId) {
   selectedCs = csId;
+  document.querySelectorAll('.cs-item').forEach(item => {
+    item.classList.toggle('active', item.dataset.csId === selectedCs);
+  });
   try {
     const [cs, diff] = await Promise.all([
       api('/v1/changesets/' + csId),
@@ -165,7 +168,7 @@ async function refreshAll() {
     ]);
 
     document.getElementById('cs-list').innerHTML = csList.length ? csList.map(c => `
-      <div class="cs-item ${selectedCs === c.cs_id ? 'active' : ''}" onclick="selectCs('${esc(c.cs_id)}')">
+      <div class="cs-item ${selectedCs === c.cs_id ? 'active' : ''}" data-cs-id="${esc(c.cs_id)}" onclick="selectCs('${esc(c.cs_id)}')">
         <div class="row"><strong>${esc(c.cs_id)}</strong><span class="pill ${badgeClass(c.status)}">${esc(c.status)}</span></div>
         <div style="margin:4px 0;font-size:13px;">${esc(c.title)}</div>
         <div class="muted">${esc(c.author)} · base r${c.base_rev} · ${c.ops.length} ops</div>
@@ -192,3 +195,25 @@ refreshAll();
 </body>
 </html>
 "##;
+
+#[cfg(test)]
+mod tests {
+    use super::DASHBOARD_HTML;
+
+    #[test]
+    fn changeset_selection_updates_highlight_before_loading_details() {
+        let selection = DASHBOARD_HTML
+            .split("async function selectCs(csId) {")
+            .nth(1)
+            .and_then(|script| script.split("  try {").next())
+            .unwrap_or_default();
+        assert!(selection.contains("selectedCs = csId;"));
+        assert!(selection.contains("document.querySelectorAll('.cs-item').forEach(item => {"));
+        assert!(
+            selection
+                .contains("item.classList.toggle('active', item.dataset.csId === selectedCs);")
+        );
+        assert!(DASHBOARD_HTML.contains("data-cs-id=\"${esc(c.cs_id)}\""));
+        assert!(DASHBOARD_HTML.contains("selectedCs === c.cs_id ? 'active' : ''"));
+    }
+}
