@@ -21,8 +21,11 @@ pub enum MergeOutcome {
 
 /// Produce a standard unified diff string between two UTF-8 texts.
 pub fn unified_diff(path: &str, old_text: &str, new_text: &str) -> String {
-    let patch = diffy::create_patch(old_text, new_text);
-    format!("--- a/{path}\n+++ b/{path}\n{patch}")
+    diffy::DiffOptions::new()
+        .set_original_filename(format!("a/{path}"))
+        .set_modified_filename(format!("b/{path}"))
+        .create_patch(old_text, new_text)
+        .to_string()
 }
 
 /// Perform a 3-way merge of `ours` (agent changeset tree) onto `theirs` (`main` head tree)
@@ -302,6 +305,14 @@ fn extract_pure_insertions<'a>(base: &[&str], modified: &[&'a str]) -> Option<Ve
 mod tests {
     use super::*;
     use crate::config::DocksideConfig;
+
+    #[test]
+    fn unified_diff_has_one_file_header_pair() {
+        assert_eq!(
+            unified_diff("docs/guide.md", "Before\n", "After\n"),
+            "--- a/docs/guide.md\n+++ b/docs/guide.md\n@@ -1 +1 @@\n-Before\n+After\n"
+        );
+    }
 
     #[tokio::test]
     async fn clean_three_way_merge_non_overlapping_hunks() -> CoreResult<()> {
