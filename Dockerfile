@@ -62,5 +62,5 @@ USER dockside
 VOLUME ["/data"]
 EXPOSE 7420
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
-  CMD curl -fsS -H "Authorization: Bearer $DOCKSIDE_AUTH_TOKEN" http://127.0.0.1:7420/v1/health || exit 1
+  CMD curl -fsS http://127.0.0.1:7420/v1/health || exit 1
 ENTRYPOINT ["/usr/bin/tini", "-s", "--", "/usr/local/bin/dockside-entrypoint"]

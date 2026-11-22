@@ -25,7 +25,6 @@ use crate::ui::DASHBOARD_HTML;
 
 pub fn router(state: AppState) -> Router {
     let api = Router::new()
-        .route("/health", get(health))
         .route("/blobs/missing", post(blobs_missing))
         .route("/blobs/{hash}", put(put_blob).get(get_blob))
         .route("/revisions", get(list_revisions))
@@ -51,6 +50,7 @@ pub fn router(state: AppState) -> Router {
 
     Router::new()
         .route("/", get(index_ui))
+        .route("/v1/health", get(health))
         .nest("/v1", api)
         .layer(DefaultBodyLimit::max(64 * 1024 * 1024))
         .with_state(state)
