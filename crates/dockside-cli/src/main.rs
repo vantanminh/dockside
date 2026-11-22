@@ -237,8 +237,13 @@ async fn run(cli: Cli) -> CliResult<()> {
                 emit_json(&h)?;
             } else {
                 println!(
-                    "OK | repo={} | main=r{} | R2={} | git_mirror={} | verify={}",
-                    h.repo_name, h.main_rev, h.r2_enabled, h.git_mirror_enabled, h.verify_enabled
+                    "OK | version={} | repo={} | main=r{} | R2={} | git_mirror={} | verify={}",
+                    h.version,
+                    h.repo_name,
+                    h.main_rev,
+                    h.r2_enabled,
+                    h.git_mirror_enabled,
+                    h.verify_enabled
                 );
             }
         }

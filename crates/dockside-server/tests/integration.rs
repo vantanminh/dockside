@@ -104,6 +104,18 @@ async fn get_json<Resp: DeserializeOwned>(
 }
 
 #[tokio::test]
+async fn health_reports_server_version_without_auth() -> Result<(), Box<dyn std::error::Error>> {
+    let (_tmp, app) = setup_app(Some("test-token".to_string())).await?;
+    let (status, health) = get_json::<serde_json::Value>(&app, "/v1/health", None).await?;
+    assert_eq!(status, StatusCode::OK);
+    let health = health.ok_or("missing health response")?;
+    assert_eq!(health["status"], "ok");
+    assert_eq!(health["version"], env!("CARGO_PKG_VERSION"));
+    assert_eq!(health["main_rev"], 0);
+    Ok(())
+}
+
+#[tokio::test]
 async fn parallel_agents_auto_land_and_auto_merge_routes() -> Result<(), Box<dyn std::error::Error>>
 {
     let (_tmp, app) = setup_app(None).await?;
