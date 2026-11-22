@@ -38,6 +38,20 @@ async fn setup_app(
     Ok((dir, build_router(state)))
 }
 
+#[tokio::test]
+async fn health_uses_the_agent_bearer_boundary() -> Result<(), Box<dyn std::error::Error>> {
+    let (_dir, app) = setup_app(Some("test-health-token".into())).await?;
+    for (token, expected) in [
+        (None, StatusCode::UNAUTHORIZED),
+        (Some("wrong"), StatusCode::UNAUTHORIZED),
+        (Some("test-health-token"), StatusCode::OK),
+    ] {
+        let (status, _) = get_json::<serde_json::Value>(&app, "/v1/health", token).await?;
+        assert_eq!(status, expected);
+    }
+    Ok(())
+}
+
 async fn put_blob(
     app: &axum::Router,
     data: &[u8],
@@ -104,9 +118,10 @@ async fn get_json<Resp: DeserializeOwned>(
 }
 
 #[tokio::test]
-async fn health_reports_server_version_without_auth() -> Result<(), Box<dyn std::error::Error>> {
+async fn health_reports_server_version_with_auth() -> Result<(), Box<dyn std::error::Error>> {
     let (_tmp, app) = setup_app(Some("test-token".to_string())).await?;
-    let (status, health) = get_json::<serde_json::Value>(&app, "/v1/health", None).await?;
+    let (status, health) =
+        get_json::<serde_json::Value>(&app, "/v1/health", Some("test-token")).await?;
     assert_eq!(status, StatusCode::OK);
     let health = health.ok_or("missing health response")?;
     assert_eq!(health["status"], "ok");

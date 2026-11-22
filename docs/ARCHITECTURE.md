@@ -1,5 +1,15 @@
 # Architecture
 
+## Backup boundary
+
+The metadata store uses SQLite WAL. `dockside-server checkpoint` opens the existing
+database read/write without CREATE, waits up to 30 seconds for a truncating WAL
+checkpoint, and fails closed when readers/writers prevent completion. It is a local
+maintenance command, not an HTTP API. The caller must subsequently stop the server
+and archive the entire data volume, including CAS and any WAL side files. A live
+tar after a checkpoint alone cannot guarantee metadata/CAS consistency. Restores
+must keep the service stopped until the whole volume has been replaced.
+
 Dockside replaces a distributed, branch-per-agent Git workflow with a **server-centric monorepo**:
 the server owns `main`; agents only propose changesets.
 

@@ -5,6 +5,12 @@ All notable changes to Dockside are documented here, following
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-22
+
+### Added
+- `dockside-server checkpoint` flushes the existing SQLite WAL and fails if it cannot obtain a consistent checkpoint. Rudder can run it before stopping Dockside and archiving `/data`; a checkpoint alone is not a live filesystem snapshot.
+- `/v1/health` now requires the configured bearer token, just like the agent API; container health checks supply it. Dashboard HTML remains at `/` for Rudder Access to protect.
+
 ## [0.2.1] - 2026-11-22
 
 ### Fixed
