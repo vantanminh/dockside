@@ -46,7 +46,7 @@ time = { version = "0.3.55", features = ["formatting", "parsing", "macros", "ser
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "signal", "net", "time", "fs", "io-util", "sync", "process"] }
 toml = "0.8"
 tower = { version = "0.5.3", features = ["util"] }
-tower-http = { version = "0.6.2", features = ["cors", "limit", "trace"] }
+tower-http = { version = "0.7.1", features = ["cors", "limit", "trace"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 walkdir = "2.5"
