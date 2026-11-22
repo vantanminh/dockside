@@ -96,7 +96,7 @@ jobs:
           - runner: windows-latest
             target: x86_64-pc-windows-msvc
             extension: .exe
-          - runner: macos-14
+          - runner: macos-latest
             target: aarch64-apple-darwin
             extension: ''
     runs-on: ${{ matrix.runner }}
