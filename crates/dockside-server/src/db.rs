@@ -13,6 +13,60 @@ use time::format_description::well_known::Rfc3339;
 
 use crate::error::{ServerError, ServerResult};
 
+/// Flush WAL frames before a stopped-service volume copy. Never creates a database.
+pub fn checkpoint(path: &Path) -> ServerResult<()> {
+    checkpoint_with_timeout(path, std::time::Duration::from_secs(30))
+}
+
+fn checkpoint_with_timeout(path: &Path, timeout: std::time::Duration) -> ServerResult<()> {
+    let conn = Connection::open_with_flags(path, rusqlite::OpenFlags::SQLITE_OPEN_READ_WRITE)?;
+    conn.busy_timeout(timeout)?;
+    let busy: i64 = conn.query_row("PRAGMA wal_checkpoint(TRUNCATE)", [], |row| row.get(0))?;
+    if busy != 0 {
+        return Err(ServerError::Conflict(
+            "SQLite checkpoint is busy; backup must not proceed".into(),
+        ));
+    }
+    Ok(())
+}
+
+#[cfg(test)]
+mod checkpoint_tests {
+    use super::*;
+
+    #[test]
+    fn flushes_wal_and_rejects_missing_or_busy_databases() -> Result<(), Box<dyn std::error::Error>>
+    {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("dockside.sqlite");
+        assert!(checkpoint(&path).is_err());
+        assert!(!path.exists());
+        let writer = Connection::open(&path)?;
+        writer.pragma_update(None, "journal_mode", "WAL")?;
+        writer
+            .execute_batch("CREATE TABLE items (value INTEGER); INSERT INTO items VALUES (1);")?;
+        checkpoint(&path)?;
+        assert_eq!(
+            std::fs::metadata(dir.path().join("dockside.sqlite-wal"))?.len(),
+            0
+        );
+        let reader = Connection::open(&path)?;
+        reader.execute_batch("BEGIN; SELECT * FROM items;")?;
+        writer.execute("INSERT INTO items VALUES (2)", [])?;
+        assert!(matches!(
+            checkpoint_with_timeout(&path, std::time::Duration::from_millis(5)),
+            Err(ServerError::Conflict(_))
+        ));
+        reader.execute_batch("ROLLBACK")?;
+        checkpoint(&path)?;
+        let count: i64 = writer.query_row("SELECT count(*) FROM items", [], |row| row.get(0))?;
+        assert_eq!(count, 2);
+        std::fs::write(dir.path().join("invalid.sqlite"), b"not a database")?;
+        assert!(checkpoint(&dir.path().join("invalid.sqlite")).is_err());
+        Ok(())
+    }
+}
+
 #[derive(Clone)]
 pub struct Db {
     conn: Arc<Mutex<Connection>>,

@@ -5,6 +5,11 @@ All notable changes to Dockside are documented here, following
 
 ## [Unreleased]
 
+## [0.2.2] - 2026-11-22
+
+### Added
+- `dockside-server checkpoint` flushes the existing SQLite WAL and fails if it cannot obtain a consistent checkpoint. Rudder can run it before stopping Dockside and archiving `/data`; a checkpoint alone is not a live filesystem snapshot.
+
 ## [0.2.1] - 2026-11-22
 
 ### Fixed

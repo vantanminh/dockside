@@ -17,12 +17,17 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
         .with_ansi(std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none())
         .init();
 
+    let data_dir =
+        PathBuf::from(std::env::var("DOCKSIDE_DATA_DIR").unwrap_or_else(|_| "./data".to_string()));
+    if std::env::args().nth(1).as_deref() == Some("checkpoint") {
+        dockside_server::db::checkpoint(&data_dir.join("dockside.sqlite"))?;
+        info!("SQLite WAL checkpoint finished; stop the service before archiving its volume");
+        return Ok(());
+    }
+
     let bind_raw =
         std::env::var("DOCKSIDE_BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:7420".to_string());
     let addr: SocketAddr = bind_raw.parse()?;
-
-    let data_dir =
-        PathBuf::from(std::env::var("DOCKSIDE_DATA_DIR").unwrap_or_else(|_| "./data".to_string()));
 
     let config = match std::env::var("DOCKSIDE_CONFIG") {
         Ok(p) if !p.trim().is_empty() && PathBuf::from(&p).is_file() => {

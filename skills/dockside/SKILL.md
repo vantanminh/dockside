@@ -5,6 +5,11 @@ description: Use the dockside CLI for server-centric source control (opening eph
 
 # Dockside Agent Workflow
 
+For volume backups, run `dockside-server checkpoint` with the server's
+`DOCKSIDE_DATA_DIR`, require success, stop the service, and archive the whole data
+volume. A checkpoint alone is not a live snapshot. Restore only while stopped,
+then start and verify `/v1/health`. The maintenance command is local, not HTTP.
+
 You are working in a **server-centric monorepo** managed by `dockside-server` + `dockside`.
 Do **not** create Git branches, worktrees, or run `git merge` / `git rebase`. The server owns `main` (`r1 → r2 → r3...`).
 

@@ -1,5 +1,16 @@
 # Dockside
 
+### Consistent volume backups
+
+For Rudder-managed backups, run `dockside-server checkpoint` in the container as a
+pre-backup hook, then stop the service before copying the entire `/data` volume.
+The command reads `DOCKSIDE_DATA_DIR` (default `./data`), opens only an existing
+`dockside.sqlite`, and fails on an incomplete/busy checkpoint. Do not omit the stop:
+concurrent writes can resume immediately after the checkpoint. Preserve the CAS,
+SQLite database and any WAL/SHM files together. Restores must replace the stopped
+volume, then start and health-check Dockside. This maintenance command is local
+only; it adds no public HTTP endpoint.
+
 [![CI](https://github.com/vantanminh/dockside/actions/workflows/ci.yml/badge.svg)](https://github.com/vantanminh/dockside/actions/workflows/ci.yml)
 [![License](https://img.shields.io/badge/license-MIT%20OR%20Apache--2.0-blue.svg)](#license)
 
