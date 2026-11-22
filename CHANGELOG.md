@@ -5,6 +5,12 @@ All notable changes to Dockside are documented here, following
 
 ## [Unreleased]
 
+## [0.2.1] - 2026-11-22
+
+### Fixed
+- Server logs no longer contain ANSI color codes when stdout is not a terminal (e.g. in Docker or the Rudder log viewer); `NO_COLOR` also disables colors.
+- The container no longer prints a tini warning when it is not PID 1 (for example under `init: true`): tini now runs as a child subreaper.
+
 ## [0.2.0] - 2026-11-22
 
 ### Added
