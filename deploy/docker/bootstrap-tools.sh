@@ -25,8 +25,13 @@ fi
 
 if ! stamp "node-$NODE_VERSION"; then
   log "installing Node $NODE_VERSION"
+  case "$(uname -m)" in
+    x86_64) NODE_ARCH=x64 ;;
+    aarch64|arm64) NODE_ARCH=arm64 ;;
+    *) log "unsupported Node architecture"; exit 1 ;;
+  esac
   rm -rf "$TOOLS/node" && mkdir -p "$TOOLS/node"
-  if curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz" \
+  if curl -fsSL "https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-${NODE_ARCH}.tar.xz" \
        | tar -xJ -C "$TOOLS/node" --strip-components=1 \
      && "$TOOLS/node/bin/corepack" enable --install-directory "$TOOLS/bin"; then
     mark "node-$NODE_VERSION"; log "node ok"

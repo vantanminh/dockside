@@ -85,6 +85,7 @@ async fn health(State(state): State<AppState>) -> ServerResult<Json<HealthResp>>
     let main_rev = state.db.main_rev_id()?;
     Ok(Json(HealthResp {
         status: "ok".to_string(),
+        version: env!("CARGO_PKG_VERSION").to_string(),
         repo_name: state.config.repo.name.clone(),
         main_rev,
         r2_enabled: state.cas.is_r2_enabled(),

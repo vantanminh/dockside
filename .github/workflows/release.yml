@@ -1,0 +1,166 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+  packages: write
+
+env:
+  IMAGE: ghcr.io/vantanminh/dockside-server
+
+jobs:
+  preflight:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.check.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate version and extract release notes
+        id: check
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          python3 - <<'PY'
+          import os, pathlib, re, tomllib
+          version = tomllib.loads(pathlib.Path('Cargo.toml').read_text())['workspace']['package']['version']
+          if os.environ['TAG'] != f'v{version}':
+              raise SystemExit('Tag must match workspace version')
+          changelog = pathlib.Path('CHANGELOG.md').read_text()
+          section = re.search(r'^## \[' + re.escape(version) + r'\][^\n]*\n(.*?)(?=^## |\Z)', changelog, re.M | re.S)
+          if not section or not re.search(r'^\s*[-*] \S', section[1], re.M):
+              raise SystemExit('Release changelog section must contain release notes')
+          pathlib.Path('release-notes.md').write_text(section[1].strip() + '\n')
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              output.write(f'version={version}\n')
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-notes
+          path: release-notes.md
+
+  image:
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        id: build
+        with:
+          context: .
+          platforms: linux/${{ matrix.arch }}
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          labels: |
+            org.opencontainers.image.source=https://github.com/vantanminh/dockside
+            org.opencontainers.image.version=${{ needs.preflight.outputs.version }}
+            org.opencontainers.image.revision=${{ github.sha }}
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p digests
+          touch "digests/${DIGEST#sha256:}"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: digest-${{ matrix.arch }}
+          path: digests/*
+
+  cli:
+    needs: preflight
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            extension: ''
+          - runner: ubuntu-24.04-arm
+            target: aarch64-unknown-linux-gnu
+            extension: ''
+          - runner: windows-latest
+            target: x86_64-pc-windows-msvc
+            extension: .exe
+          - runner: macos-14
+            target: aarch64-apple-darwin
+            extension: ''
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo build --release --locked -p dockside-cli --bin dockside --target ${{ matrix.target }}
+      - name: Package binary
+        shell: bash
+        env:
+          TARGET: ${{ matrix.target }}
+          EXTENSION: ${{ matrix.extension }}
+        run: |
+          mkdir -p assets
+          cp "target/$TARGET/release/dockside$EXTENSION" "assets/dockside-$TARGET$EXTENSION"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: cli-${{ matrix.target }}
+          path: assets/*
+
+  publish:
+    needs: [preflight, image, cli]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: digest-*
+          path: digests
+          merge-multiple: true
+      - name: Publish image manifest and plugin descriptor
+        env:
+          VERSION: ${{ needs.preflight.outputs.version }}
+        run: |
+          sources=()
+          for digest in digests/*; do sources+=("$IMAGE@sha256:$(basename "$digest")"); done
+          docker buildx imagetools create --tag "$IMAGE:$VERSION" --tag "$IMAGE:latest" "${sources[@]}"
+          digest=$(docker buildx imagetools inspect "$IMAGE:$VERSION" --format '{{json .Manifest}}' | jq -er '.digest')
+          mkdir -p assets
+          jq -n --arg version "$VERSION" --arg image "$IMAGE@$digest" \
+            '{schema:1,plugin:"dockside",version:$version,image:$image,health_path:"/v1/health",port:7420}' \
+            > assets/rudder-plugin.json
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: cli-*
+          path: assets
+          merge-multiple: true
+      - uses: actions/download-artifact@v4
+        with:
+          name: release-notes
+          path: notes
+      - name: Create release with checksums
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: ${{ github.ref_name }}
+        run: |
+          (cd assets && sha256sum ./* > SHA256SUMS)
+          gh release create "$TAG" assets/* --verify-tag --title "$TAG" --notes-file notes/release-notes.md

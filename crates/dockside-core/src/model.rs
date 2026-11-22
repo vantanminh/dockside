@@ -355,6 +355,8 @@ pub struct BlobsExistResp {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct HealthResp {
     pub status: String,
+    #[serde(default)]
+    pub version: String,
     pub repo_name: String,
     pub main_rev: i64,
     pub r2_enabled: bool,

@@ -8,7 +8,7 @@ and *submit*. A single-writer merge queue on the server merges, runs your checks
 change on a linear `main` (`r1 → r2 → r3 …`), then can release it and roll it back if the release
 is unhealthy. There are no branches, no worktrees, and no human approval step.
 
-> **Status: early (0.1).** It runs in production for one team, but the API and config format may
+> **Status: early (0.2).** It runs in production for one team, but the API and config format may
 > still change. Expect rough edges and read the [limits](#limits) before relying on it.
 
 ## Why not just Git?
@@ -104,6 +104,35 @@ The image is small; Rust, Node/pnpm (and optionally the Rudder CLI) used by veri
 installed into the `/data` volume on first start. Everything durable lives in that one volume:
 **back it up** (`dockside.sqlite` is the revision history). Put a TLS-terminating proxy in front
 before exposing the server beyond localhost.
+
+## Install on Rudder
+
+In the Rudder panel, choose **Rudder → Plugins → Dockside → Install**. Configure Dockside
+through the installation form, including its authentication token and repository settings.
+Updates come from [GitHub Releases](https://github.com/vantanminh/dockside/releases), whose
+`rudder-plugin.json` pins the multi-architecture GHCR image by digest.
+
+Schedule Rudder backup jobs for the plugin's `/data` volume: it holds the SQLite revision
+history, local blobs, and persistent toolchains. Keep backups before updating.
+
+## Releases
+
+Prebuilt `dockside` CLI binaries for Linux (x86_64 and ARM64), Windows (x86_64), and macOS
+(Apple Silicon) are attached to GitHub Releases alongside `SHA256SUMS` and `rudder-plugin.json`.
+Linux binaries use glibc; use a recent distribution compatible with the release runner.
+Container images are published as `ghcr.io/vantanminh/dockside-server:<version>` and `:latest`
+for linux/amd64 and linux/arm64.
+
+To cut a release:
+
+1. Bump `[workspace.package].version` in `Cargo.toml` and update `Cargo.lock`.
+2. Move the release notes from `[Unreleased]` into a dated `## [x.y.z]` section in
+   `CHANGELOG.md`, leaving an empty `[Unreleased]` section above it.
+3. Run the development checks below, commit, and merge the changes.
+4. Create and push the matching tag: `git tag vx.y.z && git push origin vx.y.z`.
+
+The release workflow checks the version and non-empty changelog, builds native binaries and
+container images, then publishes the GitHub Release using that changelog section as its body.
 
 ## Limits
 

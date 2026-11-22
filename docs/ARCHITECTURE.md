@@ -58,7 +58,7 @@ bind).
 | Method and path | Purpose |
 | :--- | :--- |
 | `GET /` | Embedded review / merge-queue web UI |
-| `GET /v1/health` | Server status, `main_rev`, object store, mirror, verify flags |
+| `GET /v1/health` | Server status, `version` (server crate package version), `main_rev`, object store, mirror, verify flags |
 | `POST /v1/blobs/missing` | Which of these hashes does the server lack (delta upload) |
 | `PUT /v1/blobs/{hash}` | Upload a blob (server re-checks the BLAKE3) |
 | `GET /v1/blobs/{hash}` | Download a blob |
