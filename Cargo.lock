@@ -366,7 +366,7 @@ dependencies = [
 
 [[package]]
 name = "dockside-cli"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "axum",
  "clap",
@@ -383,7 +383,7 @@ dependencies = [
 
 [[package]]
 name = "dockside-core"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "blake3",
  "bytes",
@@ -405,7 +405,7 @@ dependencies = [
 
 [[package]]
 name = "dockside-server"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "axum",
  "bytes",
