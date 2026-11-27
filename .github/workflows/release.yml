@@ -130,7 +130,7 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: digest-*
           path: digests
@@ -147,12 +147,12 @@ jobs:
           jq -n --arg version "$VERSION" --arg image "$IMAGE@$digest" \
             '{schema:1,plugin:"dockside",version:$version,image:$image,health_path:"/v1/health",port:7420}' \
             > assets/rudder-plugin.json
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           pattern: cli-*
           path: assets
           merge-multiple: true
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v8
         with:
           name: release-notes
           path: notes
