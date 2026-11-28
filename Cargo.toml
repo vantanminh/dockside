@@ -50,7 +50,7 @@ tower-http = { version = "0.6.2", features = ["cors", "limit", "trace"] }
 tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.23", features = ["json", "env-filter"] }
 walkdir = "2.5"
-zstd = "0.13"
+zstd = "0.14"
 
 [profile.release]
 opt-level = 3
