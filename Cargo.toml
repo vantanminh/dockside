@@ -44,7 +44,7 @@ tempfile = "3"
 thiserror = "2.0"
 time = { version = "0.3.55", features = ["formatting", "parsing", "macros", "serde"] }
 tokio = { version = "1.53.3", features = ["rt-multi-thread", "macros", "signal", "net", "time", "fs", "io-util", "sync", "process"] }
-toml = "0.8"
+toml = "1.2"
 tower = { version = "0.5.3", features = ["util"] }
 tower-http = { version = "0.6.2", features = ["cors", "limit", "trace"] }
 tracing = "0.1.44"
